@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --g:#00ff41;--gd:rgba(0,255,65,.55);--gb:rgba(0,255,65,.22);--gf:rgba(0,255,65,.1);
+  --text:#c8ffc8;--amber:#ffcc00;--red:#ff4545;--card:rgba(4,22,4,.78);
+}
+html,body{height:100%;background:transparent;font-family:'Share Tech Mono','Courier New',monospace;color:var(--g);overflow:hidden}
+#app{display:flex;flex-direction:column;gap:7px;padding:8px 10px 10px;height:100vh;overflow-y:auto;scrollbar-width:none}
+#app::-webkit-scrollbar{display:none}
+.copy-btn{background:none;border:none;color:rgba(0,255,65,.3);cursor:pointer;font-size:11px;padding:0 2px;transition:color .15s;line-height:1}
+.copy-btn:hover{color:var(--g)}
+.drag{height:18px;-webkit-app-region:drag;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:grab}
+.drag-pip{width:28px;height:3px;border-radius:2px;background:rgba(0,255,65,.2)}
+.card{
+  background:var(--card);border:1px solid var(--gb);border-radius:15px;
+  padding:11px 13px 10px;
+  box-shadow:0 0 0 1px rgba(0,255,65,.04) inset,0 2px 16px rgba(0,0,0,.6),0 0 18px rgba(0,255,65,.05);
+  -webkit-app-region:no-drag;position:relative;transition:border-color .2s,box-shadow .2s;
+}
+.card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:0 2px 2px 0;background:var(--g);opacity:0;transition:opacity .2s}
+.card.running{border-color:rgba(0,255,65,.38);box-shadow:0 0 0 1px rgba(0,255,65,.06) inset,0 2px 20px rgba(0,0,0,.65),0 0 28px rgba(0,255,65,.1)}
+.card.running::before{opacity:1}
+.card-top{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap}
+.card-bot{display:flex;align-items:center;gap:6px;margin-top:6px}
+.c-key{font-size:10px;color:rgba(0,255,65,.5);text-decoration:none;letter-spacing:.3px;white-space:nowrap;transition:color .15s}
+.c-key:hover{color:var(--g)}
+.badge{font-size:8px;padding:1px 6px;border-radius:8px;border:1px solid;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+.b-ip{color:var(--amber);border-color:rgba(255,204,0,.3);background:rgba(255,204,0,.06)}
+.b-td{color:rgba(0,255,65,.4);border-color:rgba(0,255,65,.16);background:transparent}
+.b-jira{color:rgba(0,200,255,.7);border-color:rgba(0,200,255,.25);background:rgba(0,200,255,.06)}
+.sp{flex:1}
+.timer{font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:.8px;color:var(--g);white-space:nowrap}
+.timer.running{text-shadow:0 0 10px rgba(0,255,65,.9);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.pbtn{width:27px;height:27px;border-radius:50%;border:1px solid var(--gb);background:rgba(0,25,0,.6);color:var(--gd);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;transition:all .18s;flex-shrink:0}
+.pbtn:hover{background:var(--gf);color:var(--g);border-color:var(--gd);box-shadow:0 0 10px rgba(0,255,65,.18)}
+.pbtn.running{border-color:rgba(255,69,69,.4);color:var(--red);background:rgba(255,69,69,.07)}
+.pbtn.running:hover{background:rgba(255,69,69,.14);border-color:var(--red);box-shadow:0 0 10px rgba(255,69,69,.2)}
+.c-summ{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35;flex:1;min-width:0}
+.jira-logged{font-size:9px;letter-spacing:.5px;color:rgba(0,200,255,.6);white-space:nowrap}
+.jira-logged.has-time{color:rgba(0,220,255,.85);text-shadow:0 0 6px rgba(0,200,255,.4)}
+.slbl{font-size:8.5px;letter-spacing:2.5px;color:rgba(0,255,65,.28);text-transform:uppercase;padding:1px 3px;flex-shrink:0}
+.foot{background:rgba(3,16,3,.7);border:1px solid rgba(0,255,65,.14);border-radius:12px;padding:8px 13px;display:flex;justify-content:space-between;align-items:center;-webkit-app-region:no-drag;margin-top:1px}
+.f-lbl{font-size:8.5px;letter-spacing:2px;color:rgba(0,255,65,.28);text-transform:uppercase}
+.f-val{font-size:14px;color:var(--g);letter-spacing:1px;text-shadow:0 0 8px rgba(0,255,65,.35)}
+.smsg{background:var(--card);border:1px solid var(--gb);border-radius:15px;padding:20px 14px;text-align:center;font-size:10px;letter-spacing:2px;color:rgba(0,255,65,.3);box-shadow:0 2px 14px rgba(0,0,0,.5)}
+#overlay{position:fixed;inset:0;background:rgba(0,8,0,.88);display:flex;align-items:center;justify-content:center;z-index:100;padding:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+#overlay.show{opacity:1;pointer-events:all}
+.modal{background:rgba(3,16,3,.97);border:1px solid rgba(0,255,65,.3);border-radius:18px;box-shadow:0 0 40px rgba(0,255,65,.1);padding:22px 20px 18px;width:100%;-webkit-app-region:no-drag}
+.m-eye{font-size:8px;letter-spacing:3px;color:rgba(0,255,65,.35);text-transform:uppercase;margin-bottom:12px}
+.m-key{font-size:10px;color:var(--gd);margin-bottom:2px}
+.m-summ{font-size:12px;color:var(--text);line-height:1.4;margin-bottom:14px}
+.m-time{font-size:32px;color:var(--g);letter-spacing:2px;text-shadow:0 0 18px rgba(0,255,65,.55);margin-bottom:2px;
+  background:transparent;border:none;border-bottom:1px solid rgba(0,255,65,.2);outline:none;
+  width:100%;font-family:inherit;padding:2px 0;cursor:text;transition:border-color .18s}
+.m-time:focus{border-bottom-color:rgba(0,255,65,.6);text-shadow:0 0 24px rgba(0,255,65,.7)}
+.m-sub{font-size:8px;letter-spacing:2px;color:rgba(0,255,65,.32);text-transform:uppercase;margin-bottom:3px}
+.m-jira{font-size:9.5px;color:rgba(0,255,65,.48);margin-bottom:4px}
+.m-total{font-size:9px;color:rgba(0,200,255,.45);margin-bottom:16px;letter-spacing:.3px}
+.m-lbl{font-size:8.5px;letter-spacing:2px;color:rgba(0,255,65,.35);text-transform:uppercase;display:block;margin-bottom:6px}
+textarea{width:100%;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.18);border-radius:9px;color:var(--text);font-family:inherit;font-size:11px;padding:8px 11px;resize:none;outline:none;transition:border-color .18s;line-height:1.5}
+textarea:focus{border-color:rgba(0,255,65,.42)}
+textarea::placeholder{color:rgba(0,255,65,.18)}
+.m-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;align-items:center}
+.btn-disc{font-size:8.5px;letter-spacing:1.5px;color:rgba(255,69,69,.38);text-transform:uppercase;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;margin-right:auto;transition:color .15s}
+.btn-disc:hover{color:var(--red)}
+.btn-s{background:transparent;border:1px solid rgba(0,255,65,.18);color:rgba(0,255,65,.42);padding:7px 15px;border-radius:9px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;transition:all .18s}
+.btn-s:hover{border-color:rgba(0,255,65,.32);color:var(--gd)}
+.btn-p{background:rgba(0,255,65,.09);border:1px solid rgba(0,255,65,.36);color:var(--g);padding:7px 18px;border-radius:9px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;transition:all .18s}
+.btn-p:hover:not(:disabled){background:rgba(0,255,65,.16);box-shadow:0 0 18px rgba(0,255,65,.16)}
+.btn-p:disabled{opacity:.32;cursor:default}
+#toast{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(3,18,3,.97);border:1px solid rgba(0,255,65,.35);border-radius:11px;padding:8px 15px;font-size:10px;color:var(--g);letter-spacing:.5px;z-index:200;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+#toast.err{border-color:rgba(255,69,69,.4);color:#ff8080}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="drag"><div class="drag-pip"></div></div>
+  <div class="smsg" id="loading">CONNECTING<span id="ldots"></span></div>
+</div>
+<div id="overlay">
+  <div class="modal">
+    <div class="m-eye">⬡ LOG WORK TIME</div>
+    <div class="m-key" id="m-key"></div>
+    <div class="m-summ" id="m-summ"></div>
+    <input class="m-time" id="m-time" type="text" spellcheck="false" title="Click to edit time before logging">
+    <div class="m-sub">TIME TO LOG</div>
+    <div class="m-jira" id="m-jira"></div>
+    <div class="m-total" id="m-total"></div>
+    <label class="m-lbl">COMMENT <span style="opacity:.5">(OPTIONAL)</span></label>
+    <textarea id="m-comment" rows="2" placeholder="What did you work on?"></textarea>
+    <div class="m-acts">
+      <button class="btn-disc" onclick="discardTimer()">DISCARD TIMER</button>
+      <button class="btn-s" onclick="closeModal()">CANCEL</button>
+      <button class="btn-p" id="m-confirm" onclick="confirmLog()">LOG TO JIRA</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const TYPE_ICON={Epic:'⬡',Story:'◈',Task:'▣',Bug:'⊗',Subtask:'◫'};
+let issues=[],timers={},pending=null,ticker=null,toastTm=null;
+const pad=n=>String(n).padStart(2,'0');
+const fmtHMS=s=>`${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+const fmtHM=s=>`${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+const toJira=s=>{if(s<60)return'1m';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);if(h&&m)return`${h}h ${m}m`;return h?`${h}h`:`${m}m`;};
+const toISO=ms=>{const d=new Date(ms),p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.000+0000`;};
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const elapsed=k=>{const t=timers[k];if(!t)return 0;let s=t.acc||0;if(t.startedAt)s+=Math.floor((Date.now()-t.startedAt)/1000);return s;};
+const isRunning=k=>!!(timers[k]?.startedAt);
+function startTimer(k){
+  if(!timers[k])timers[k]={acc:0,startedAt:null,firstStartedAt:null};
+  if(timers[k].startedAt)return;
+  const now=Date.now();timers[k].startedAt=now;
+  if(!timers[k].firstStartedAt)timers[k].firstStartedAt=now;
+  window.api.saveTimers(timers);
+}
+function pauseTimer(k){const t=timers[k];if(!t||!t.startedAt)return;t.acc+=Math.floor((Date.now()-t.startedAt)/1000);t.startedAt=null;window.api.saveTimers(timers);}
+function clearTimer(k){delete timers[k];window.api.saveTimers(timers);}
+function toggleTimer(k){if(isRunning(k)){pauseTimer(k);showModal(k);}else{startTimer(k);render();ensureTick();}}
+function ensureTick(){
+  if(ticker)return;
+  ticker=setInterval(()=>{
+    const running=Object.keys(timers).filter(isRunning);
+    if(!running.length){clearInterval(ticker);ticker=null;return;}
+    running.forEach(k=>{const el=document.getElementById(`t-${k}`);if(el){const issue=issues.find(i=>i.key===k);const jiraS=(issue&&issue.todayLoggedSeconds)||0;el.textContent=fmtHMS(jiraS+elapsed(k));}});
+    updateFooter();
+  },1000);
+}
+function render(){
+  const app=document.getElementById('app');
+  if(!issues.length){app.innerHTML='<div class="drag"><div class="drag-pip"></div></div><div class="smsg">NO ACTIVE TICKETS</div>';return;}
+  const ip=issues.filter(i=>i.fields.status.statusCategory.key==='indeterminate');
+  const td=issues.filter(i=>i.fields.status.statusCategory.key!=='indeterminate');
+  let h='<div class="drag"><div class="drag-pip"></div></div>';
+  if(ip.length){h+='<div class="slbl">⚡ IN PROGRESS</div>';h+=ip.map(cardHTML).join('');}
+  if(td.length){h+='<div class="slbl" style="margin-top:3px">◦ BACKLOG / TO DO</div>';h+=td.map(cardHTML).join('');}
+  h+='<div class="foot"><span class="f-lbl">LOGGED TODAY</span><span class="f-val" id="ftotal">…</span></div>';
+  app.innerHTML=h;ensureTick();updateFooter();
+}
+function cardHTML(issue){
+  const k=issue.key,e=elapsed(k),run=isRunning(k);
+  const cat=issue.fields.status.statusCategory.key,ico=TYPE_ICON[issue.fields.issuetype.name]||'◇';
+  const jiraS=issue.todayLoggedSeconds||0;
+  return`<div class="card${run?' running':''}" id="card-${k}">
+  <div class="card-top">
+    <a class="c-key" href="https://iclassprov2.atlassian.net/browse/${k}" target="_blank">${ico} ${esc(k)}</a>
+    <button class="copy-btn" onclick="copyLink('${esc(k)}')" title="Copy link to clipboard">⎘</button>
+    <span class="badge ${cat==='indeterminate'?'b-ip':'b-td'}">${esc(issue.fields.status.name)}</span>
+  </div>
+  <div class="c-summ" title="${esc(issue.fields.summary)}">${esc(issue.fields.summary)}</div>
+  <div class="card-bot">
+    <div class="sp"></div>
+    <span class="timer${run?' running':''}" id="t-${k}">${fmtHMS(jiraS+e)}</span>
+    <button class="pbtn${run?' running':''}" onclick="toggleTimer('${esc(k)}')" title="${run?'Stop & log':'Start timer'}">${run?'⏹':'▶'}</button>
+  </div>
+</div>`;
+}
+function updateFooter(){
+  const el=document.getElementById('ftotal');if(!el)return;
+  // Sum Jira-logged seconds across all issues (source of truth)
+  const jiraTotal=issues.reduce((s,i)=>s+(i.todayLoggedSeconds||0),0);
+  // Add any currently-running local timers (not yet logged)
+  const running=Object.keys(timers).filter(isRunning).reduce((s,k)=>s+Math.floor((Date.now()-timers[k].startedAt)/1000),0);
+  el.textContent=fmtHM(jiraTotal+running);
+}
+function showModal(k){
+  const issue=issues.find(i=>i.key===k);if(!issue)return;
+  const e=elapsed(k);pending={k,e};
+  document.getElementById('m-key').textContent=k;
+  document.getElementById('m-summ').textContent=issue.fields.summary;
+  document.getElementById('m-time').value=fmtHMS(e);
+  document.getElementById('m-jira').textContent=`→ ${toJira(e)} will be logged to Jira`;
+  const totalSecs=(issue.fields.timetracking&&issue.fields.timetracking.timeSpentSeconds)||0;
+  document.getElementById('m-total').textContent=totalSecs>0?`${fmtHM(totalSecs)} total logged on this ticket all time`:'No time logged on this ticket yet';
+  document.getElementById('m-comment').value='';
+  const btn=document.getElementById('m-confirm');btn.disabled=false;btn.textContent='LOG TO JIRA';
+  document.getElementById('overlay').classList.add('show');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('show');pending=null;render();}
+function discardTimer(){if(!pending)return;clearTimer(pending.k);pending=null;document.getElementById('overlay').classList.remove('show');render();toast('Timer discarded.');}
+function parseTimeInput(str){
+  str=str.trim().toLowerCase();
+  // HH:MM:SS
+  let m=str.match(/^(\d+):(\d+):(\d+)$/);
+  if(m)return parseInt(m[1])*3600+parseInt(m[2])*60+parseInt(m[3]);
+  // H:MM or MM:SS
+  m=str.match(/^(\d+):(\d+)$/);
+  if(m)return parseInt(m[1])*60+parseInt(m[2]);
+  // 1h 30m, 1h30m, 30m, 1h
+  let secs=0;
+  const h=str.match(/(\d+)\s*h/);const mn=str.match(/(\d+)\s*m/);const s=str.match(/(\d+)\s*s/);
+  if(h)secs+=parseInt(h[1])*3600;
+  if(mn)secs+=parseInt(mn[1])*60;
+  if(s)secs+=parseInt(s[1]);
+  if(secs>0)return secs;
+  // plain number = minutes
+  m=str.match(/^(\d+)$/);
+  if(m)return parseInt(m[1])*60;
+  return null;
+}
+async function confirmLog(){
+  if(!pending)return;
+  const{k,e}=pending,comment=document.getElementById('m-comment').value.trim();
+  const rawTime=document.getElementById('m-time').value;
+  const parsedSecs=parseTimeInput(rawTime);
+  if(!parsedSecs||parsedSecs<=0){
+    document.getElementById('m-time').style.borderBottomColor='rgba(255,69,69,.8)';
+    return;
+  }
+  const btn=document.getElementById('m-confirm');btn.disabled=true;btn.textContent='LOGGING…';
+  const startedMs=timers[k]?.firstStartedAt||(Date.now()-e*1000);
+  try{
+    await window.api.postWorklog({issueKey:k,timeSpent:toJira(parsedSecs),started:toISO(startedMs),comment});
+    clearTimer(k);document.getElementById('overlay').classList.remove('show');pending=null;render();toast(`✓ Logged ${toJira(e)} to ${k}`);
+  }catch(err){btn.disabled=false;btn.textContent='LOG TO JIRA';toast('Failed: '+err.message,true);}
+}
+function toast(msg,isErr=false){
+  const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(isErr?' err':'');
+  clearTimeout(toastTm);toastTm=setTimeout(()=>{el.className='toast';},3200);
+}
+let dc=0;const dl=document.getElementById('ldots');
+if(dl){const di=setInterval(()=>{if(!document.getElementById('ldots')){clearInterval(di);return;}dc=(dc+1)%4;dl.textContent='.'.repeat(dc);},400);}
+function copyLink(k){
+  const url='https://iclassprov2.atlassian.net/browse/'+k;
+  navigator.clipboard.writeText(url).then(()=>toast('Link copied: '+k));
+}
+async function init(){
+  try{timers=await window.api.loadTimers()||{};}catch{}
+  if(Object.keys(timers).some(isRunning))ensureTick();
+  try{issues=await window.api.fetchIssues();}
+  catch(e){document.getElementById('app').innerHTML=`<div class="drag"><div class="drag-pip"></div></div><div class="smsg" style="color:rgba(255,69,69,.5)">JIRA ERROR<br><span style="font-size:9px">${esc(e.message.slice(0,200))}</span></div>`;return;}
+  render();
+  window.api.onIssuesUpdate(u=>{issues=u;render();});
+  window.api.onJiraLoggedDetected(keys=>{
+    keys.forEach(k=>{
+      if(isRunning(k)){
+        pauseTimer(k);
+        toast(`Jira time detected on ${k} — local timer paused`);
+        render();
+      }
+    });
+  });
+}
+init();
+</script>
+</body>
+</html>

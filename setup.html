@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:transparent;font-family:'Share Tech Mono','Courier New',monospace;color:#00ff41;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:16px;-webkit-app-region:drag}
+.card{background:rgba(4,20,4,.92);border:1px solid rgba(0,255,65,.28);border-radius:18px;padding:26px 22px 22px;width:100%;max-width:300px;box-shadow:0 0 30px rgba(0,255,65,.08),0 4px 20px rgba(0,0,0,.6);-webkit-app-region:no-drag}
+.eye{font-size:8.5px;letter-spacing:3px;color:rgba(0,255,65,.38);text-transform:uppercase;margin-bottom:14px}
+.ttl{font-size:16px;color:#00ff41;text-shadow:0 0 10px rgba(0,255,65,.55);margin-bottom:4px;letter-spacing:1px}
+.sub{font-size:10px;color:rgba(0,255,65,.4);margin-bottom:22px;line-height:1.5}
+.field{margin-bottom:13px}
+label{display:block;font-size:8.5px;letter-spacing:2px;color:rgba(0,255,65,.38);text-transform:uppercase;margin-bottom:5px}
+input{width:100%;background:rgba(0,255,65,.05);border:1px solid rgba(0,255,65,.2);border-radius:9px;color:#c8ffc8;font-family:inherit;font-size:11.5px;padding:8px 11px;outline:none;transition:border-color .18s}
+input:focus{border-color:rgba(0,255,65,.48)}
+input::placeholder{color:rgba(0,255,65,.18)}
+.hint{font-size:8.5px;color:rgba(0,255,65,.28);margin-top:4px}
+.hint a{color:rgba(0,255,65,.45);text-decoration:none}
+.hint a:hover{color:#00ff41}
+.err{font-size:9.5px;color:#ff7070;margin-bottom:10px;display:none}
+.btn{width:100%;background:rgba(0,255,65,.09);border:1px solid rgba(0,255,65,.38);color:#00ff41;padding:10px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-top:18px;transition:all .18s}
+.btn:hover:not(:disabled){background:rgba(0,255,65,.16);box-shadow:0 0 18px rgba(0,255,65,.16)}
+.btn:disabled{opacity:.3;cursor:default}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="eye">⬡ TASK TRACKER</div>
+  <div class="ttl">CONNECT JIRA</div>
+  <div class="sub">One-time setup. Credentials stored locally on your machine.</div>
+  <div class="field"><label>Jira Site</label><input id="site" type="text" value="iclassprov2.atlassian.net"></div>
+  <div class="field"><label>Email</label><input id="email" type="email" value="jlandry@icamppro.com"></div>
+  <div class="field">
+    <label>API Token</label>
+    <input id="token" type="password" placeholder="Paste your API token">
+    <div class="hint">Get one at <a href="#" onclick="openLink()">id.atlassian.com → Security → API tokens</a></div>
+  </div>
+  <div class="err" id="err"></div>
+  <button class="btn" id="btn" onclick="save()">CONNECT →</button>
+</div>
+<script>
+function openLink(){try{require('electron').shell.openExternal('https://id.atlassian.com/manage-profile/security/api-tokens');}catch{}}
+async function save(){
+  const site=document.getElementById('site').value.trim().replace(/^https?:\/\//,'');
+  const email=document.getElementById('email').value.trim();
+  const token=document.getElementById('token').value.trim();
+  const err=document.getElementById('err'),btn=document.getElementById('btn');
+  err.style.display='none';
+  if(!site||!email||!token){err.textContent='All fields required.';err.style.display='block';return;}
+  btn.disabled=true;btn.textContent='SAVING…';
+  try{await window.api.saveConfig({site,email,token});}
+  catch(e){err.textContent='Error: '+e.message;err.style.display='block';btn.disabled=false;btn.textContent='CONNECT →';}
+}
+</script>
+</body>
+</html>

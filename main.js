@@ -176,7 +176,7 @@ function startSync() {
       issues.forEach(issue => {
         const key  = issue.key;
         const prev = prevLoggedSeconds[key] || 0;
-        const curr = issue._todayLoggedSeconds || 0;
+        const curr = issue.todayLoggedSeconds || 0;
         if (curr > prev && timers[key]?.startedAt) {
           jiraLogged.push(key);
         }

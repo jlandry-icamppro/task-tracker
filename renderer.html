@@ -89,6 +89,8 @@ html,body{height:100%;background:transparent;font-family:'Share Tech Mono','Cour
 .badge{font-size:8px;padding:1px 6px;border-radius:8px;border:1px solid;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
 .b-ip{color:var(--badge-ip-color);border-color:var(--badge-ip-border);background:var(--badge-ip-bg)}
 .b-td{color:var(--badge-td-color);border-color:var(--badge-td-border);background:transparent}
+.b-sp{color:var(--muted);border-color:var(--ctrl-border);background:transparent}
+.b-sp.act{color:var(--gd);border-color:var(--gb)}
 .sp{flex:1}
 .c-summ{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35;flex:1;min-width:0}
 
@@ -185,6 +187,7 @@ let issues=[],timers={},pending=null,ticker=null,toastTm=null;
 let selectedProject = localStorage.getItem('hud-project') || 'ALL';
 let filterNoEpics   = localStorage.getItem('hud-noepics') === '1';
 let filterIPOnly    = localStorage.getItem('hud-iponly')  === '1';
+let filterSprint    = localStorage.getItem('hud-sprint')  === '1';
 
 // ── themes ──
 // Every key must match a CSS variable declared in :root.
@@ -316,11 +319,25 @@ const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').r
 const elapsed=k=>{const t=timers[k];if(!t)return 0;let s=t.acc||0;if(t.startedAt)s+=Math.floor((Date.now()-t.startedAt)/1000);return s;};
 const isRunning=k=>!!(timers[k]?.startedAt);
 
+// ── sprint helpers ──
+// Strict: a ticket counts as in the active sprint only if Jira marks one of its
+// sprints 'active'. Tickets with no sprint at all (epics, non-sprint work) are
+// filtered out when the ACTIVE SPRINT chip is on.
+const inActiveSprint=i=>(i.sprints||[]).some(s=>s.state==='active');
+function sprintLabel(i){
+  const ss=i.sprints||[];
+  const s=ss.find(x=>x.state==='active')||ss.find(x=>x.state==='future');
+  if(!s||!s.name)return null;
+  const m=/(\d+[A-Za-z.\-]*)\s*$/.exec(s.name);   // "iCampPro Sprint 43" → "43"
+  return{text:m?`SPRINT ${m[1]}`:s.name,active:s.state==='active'};
+}
+
 function applyFilters(list){
   let out=list;
   if(selectedProject!=='ALL') out=out.filter(i=>i.fields.project?.key===selectedProject);
   if(filterNoEpics) out=out.filter(i=>i.fields.issuetype?.name!=='Epic');
   if(filterIPOnly)  out=out.filter(i=>i.fields.status.statusCategory.key==='indeterminate');
+  if(filterSprint)  out=out.filter(inActiveSprint);
   return out;
 }
 
@@ -369,6 +386,7 @@ function render(){
     <span class="ctrl-sp"></span>
     <button class="chip${filterNoEpics?' on':''}" onclick="toggleChip('noepics')">NO EPICS</button>
     <button class="chip${filterIPOnly?' on':''}" onclick="toggleChip('iponly')">IN PROGRESS</button>
+    <button class="chip${filterSprint?' on':''}" onclick="toggleChip('sprint')" title="Only tickets in the current active sprint">ACTIVE SPRINT</button>
   </div>
   ${themeRowHTML()}`;
 
@@ -391,6 +409,8 @@ function cardHTML(issue){
   const cat=issue.fields.status.statusCategory.key,ico=TYPE_ICON[issue.fields.issuetype.name]||'◇';
   const jiraS=issue.todayLoggedSeconds||0;
   const tt=issue.fields.timetracking;
+  const sp=sprintLabel(issue);
+  const spBadge=sp?`<span class="badge b-sp${sp.active?' act':''}" title="${esc(sp.active?'Active sprint':'Future sprint')}">${esc(sp.text)}</span>`:'';
   const estS  = tt?.originalEstimateSeconds  || 0;
   const allS  = tt?.timeSpentSeconds         || 0;
   return`<div class="card${run?' running':''}" id="card-${k}">
@@ -398,6 +418,7 @@ function cardHTML(issue){
     <a class="c-key" href="https://iclassprov2.atlassian.net/browse/${k}" target="_blank">${ico} ${esc(k)}</a>
     <button class="copy-btn" onclick="copyLink('${esc(k)}')" title="Copy link to clipboard">⎘</button>
     <span class="badge ${cat==='indeterminate'?'b-ip':'b-td'}">${esc(issue.fields.status.name)}</span>
+    ${spBadge}
   </div>
   <div class="c-summ" title="${esc(issue.fields.summary)}">${esc(issue.fields.summary)}</div>
   <div class="stat-row">
@@ -428,6 +449,7 @@ function setProject(v){selectedProject=v;localStorage.setItem('hud-project',v);r
 function toggleChip(which){
   if(which==='noepics'){filterNoEpics=!filterNoEpics;localStorage.setItem('hud-noepics',filterNoEpics?'1':'0');}
   if(which==='iponly'){filterIPOnly=!filterIPOnly;localStorage.setItem('hud-iponly',filterIPOnly?'1':'0');}
+  if(which==='sprint'){filterSprint=!filterSprint;localStorage.setItem('hud-sprint',filterSprint?'1':'0');}
   render();
 }
 

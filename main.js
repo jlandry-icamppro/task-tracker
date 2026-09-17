@@ -52,6 +52,49 @@ async function getMyAccountId(cfg) {
   return d.accountId;
 }
 
+// ── sprint support ──────────────────────────────────────────────
+// The Sprint field is a Jira Software custom field whose id differs per site,
+// so look it up once by its schema type rather than hard-coding customfield_XXXXX.
+let sprintFieldId;           // undefined = not looked up yet, null = not available
+
+async function getSprintFieldId(cfg) {
+  if (sprintFieldId !== undefined) return sprintFieldId;
+  try {
+    const fields = await jiraReq(cfg, 'GET', '/field');
+    const f = (Array.isArray(fields) ? fields : []).find(x =>
+      x.schema?.custom === 'com.pyxis.greenhopper.jira:gh-sprint' ||
+      (x.custom && x.name === 'Sprint'));
+    sprintFieldId = f?.id || null;
+    console.log('[sprint] field id:', sprintFieldId);
+  } catch (e) {
+    console.error('[sprint] field lookup failed:', e.message);
+    sprintFieldId = null;
+  }
+  return sprintFieldId;
+}
+
+// Jira returns either sprint objects or (older instances) toString blobs like
+// "...Sprint@1a2b[id=3194,name=iCampPro Sprint 43,state=ACTIVE,...]". Handle both.
+function normalizeSprints(raw) {
+  if (!raw) return [];
+  return (Array.isArray(raw) ? raw : [raw]).map(s => {
+    if (s && typeof s === 'object') {
+      return { id: s.id, name: s.name || '', state: String(s.state || '').toLowerCase() };
+    }
+    if (typeof s === 'string') {
+      const name  = /name=([^,\]]*)/.exec(s);
+      const state = /state=([^,\]]*)/.exec(s);
+      const id    = /id=(\d+)/.exec(s);
+      return {
+        id:    id ? Number(id[1]) : undefined,
+        name:  name ? name[1].trim() : '',
+        state: state ? state[1].trim().toLowerCase() : ''
+      };
+    }
+    return null;
+  }).filter(Boolean);
+}
+
 async function fetchTodayLoggedSeconds(cfg, issueKey, accountId) {
   try {
     const d = await jiraReq(cfg, 'GET', `/issue/${issueKey}/worklog?maxResults=100`);
@@ -75,7 +118,10 @@ async function fetchTodayLoggedSeconds(cfg, issueKey, accountId) {
 
 async function fetchIssues(cfg) {
   const jql = encodeURIComponent('assignee = currentUser() AND statusCategory != Done ORDER BY status ASC, updated DESC');
-  const d = await jiraReq(cfg, 'GET', `/search/jql?jql=${jql}&fields=summary,status,issuetype,priority,project,timetracking&maxResults=50`);
+  const sprintField = await getSprintFieldId(cfg);
+  const fieldList = ['summary','status','issuetype','priority','project','timetracking'];
+  if (sprintField) fieldList.push(sprintField);
+  const d = await jiraReq(cfg, 'GET', `/search/jql?jql=${jql}&fields=${fieldList.join(',')}&maxResults=50`);
   const issues = d.issues || [];
 
   const accountId = await getMyAccountId(cfg);
@@ -95,6 +141,7 @@ async function fetchIssues(cfg) {
     key:    issue.key,
     webUrl: issue.webUrl,
     fields: issue.fields,
+    sprints: sprintField ? normalizeSprints(issue.fields?.[sprintField]) : [],
     todayLoggedSeconds: todayLogged[issue.key] || 0
   }));
 }
